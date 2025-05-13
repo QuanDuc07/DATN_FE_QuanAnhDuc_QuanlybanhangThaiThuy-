@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query';
 import { User, UserPlus } from 'lucide-react';
 import { useState } from 'react';
 
@@ -9,7 +10,7 @@ import { QRPaymentDialog } from './QRPaymentDialog';
 import { TransactionTabs } from './TransactionTabs';
 import { useTransactionStore } from '../store/transactionStore';
 import { Customer, OrdersPayload } from '../types';
-import { processingPayment } from '../utils/processingPayment';
+import { announceSucessfulPayment, processingPayment } from '../utils/processingPayment';
 
 import { toast } from '@/hooks/use-toast';
 import { cn } from '@/utils/cn';
@@ -24,6 +25,7 @@ export const TransactionContent = () => {
   const [isCustomerDialogOpen, setIsCustomerDialogOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const queryClient = useQueryClient();
   const { 
     getActiveTransaction, 
     setTransactionCustomer, 
@@ -51,22 +53,13 @@ export const TransactionContent = () => {
       });
       return;
     }
-
-    if (!transaction.customer) {
-      toast({
-        title: "Lỗi",
-        description: "Vui lòng chọn khách hàng",
-        variant: "destructive"
-      });
-      return;
-    }
     
     try {
       setIsProcessingPayment(true);
       
       // Transform transaction data to match OrdersPayload
       const orderPayload: OrdersPayload = {
-        customerId: transaction.customer.id,
+        customerId: transaction.customer?.id, 
         paymentMethod: transaction.paymentMethod,
         items: transaction.items.map(item => ({
           productId: item.productId,
@@ -75,22 +68,34 @@ export const TransactionContent = () => {
         }))
       };
       
-
-
       const response = await processingPayment(orderPayload);
-      console.log(response)
       // Clear current transaction after successful payment
       if(response){
-      removeTransaction(transaction.id);
-      setSelectedCustomer(null)
-      toast({
-        title: "Thành công",
-        description: "Đơn hàng đã được thanh toán"
-      })}else{
-      toast({
-        title: "Thất bại",
-        description: "Đơn hàng thanh toán thất bại"
-      })
+        removeTransaction(transaction.id);
+        setSelectedCustomer(null)
+        
+        // Invalidate all relevant queries
+        queryClient.invalidateQueries({ queryKey: ['products'] });
+        queryClient.invalidateQueries({ queryKey: ['invoices'] });
+        
+        // Vô hiệu hóa TOÀN BỘ cache liên quan đến shiftOrders
+        queryClient.removeQueries({ queryKey: ["shiftOrders"] });
+        
+        // Invalidate currentShift để cập nhật thông tin ca làm việc
+        queryClient.invalidateQueries({ queryKey: ["currentShift"] });
+        if(orderPayload.paymentMethod === 'TRANSFER'){
+          const totalAmount = orderPayload.items.reduce((sum, item) => sum + (item.sellPrice * item.quantity), 0);
+          await announceSucessfulPayment(totalAmount);
+        }
+        toast({
+          title: "Thành công",
+          description: "Đơn hàng đã được thanh toán"
+        })
+      } else {
+        toast({
+          title: "Thất bại",
+          description: "Đơn hàng thanh toán thất bại"
+        })
       }
     } catch (error: unknown) {
       // Show error message
