@@ -1,11 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 import { getUserProfile, updateUserProfile, changePassword } from '../api/profileApi';
 
 import { useToast } from '@/hooks/use-toast';
 import useAuthStore from '@/store/authStore';
-import { useNavigate } from 'react-router-dom';
 
 type ProfileFormData = {
   name: string;
