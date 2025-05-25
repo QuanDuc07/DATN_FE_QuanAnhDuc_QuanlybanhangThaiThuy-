@@ -1,4 +1,4 @@
-import { useQueryClient } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query'
 import { LogOut, Settings, UserCircle2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
@@ -11,11 +11,10 @@ import {
 } from '@/components/ui/dropdown-menu';
 import Image from '@/components/ui/image'
 import useAuthStore from '@/store/authStore'
-
 const UserProfile = () => {
   const { clearCurrentUser} = useAuthStore()
   const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-  const queryClient = useQueryClient() 
+  const queryClient = useQueryClient()
   const navigate = useNavigate()
   
   const handleLogout = () => {
@@ -24,7 +23,9 @@ const UserProfile = () => {
     
     // Xóa currentUser khỏi store và localStorage
     clearCurrentUser()
+
     queryClient.clear()
+    
     // Chuyển hướng về trang login
     navigate('/login')
   }
